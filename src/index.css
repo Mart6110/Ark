@@ -1,0 +1,752 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/source-serif-4";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Geist Variable', sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+    --color-brand: var(--brand, oklch(0.72 0.2 352.53));
+    --color-brand-light: var(--brand-light, oklch(0.78 0.15 352.53));
+    --color-brand-lighter: var(--brand-lighter, oklch(0.85 0.1 352.53));
+    --color-brand-secondary: var(--brand-secondary, oklch(0.66 0.21 354.31));
+    --color-btn-drop: var(--btn-drop, rgb(0 0 0 / 0.4));
+    --color-btn-sheen: var(--btn-sheen, rgb(255 255 255 / 0.2));
+    --color-destructive-edge: var(--destructive-edge, #f61418);
+    --color-destructive-fg: var(--destructive-fg, #fff);
+    --color-destructive-hover: var(--destructive-hover, color-mix(in oklab, var(--color-destructive) 85%, black));
+    --color-destructive-top: var(--destructive-top, #fd4b4e);
+    --color-on-brand: var(--on-brand, #fff);
+    --color-amber: var(--amber);
+    --color-amber-fg: var(--amber-fg);
+    --color-amber-hover: var(--amber-hover);
+    --color-blue: var(--blue);
+    --color-blue-fg: var(--blue-fg);
+    --color-blue-hover: var(--blue-hover);
+    --color-green: var(--green);
+    --color-green-fg: var(--green-fg);
+    --color-green-hover: var(--green-hover);
+    --color-thumb: var(--thumb);
+    --color-smooth-50: var(--smooth-50);
+    --color-smooth-100: var(--smooth-100);
+    --color-smooth-200: var(--smooth-200);
+    --color-smooth-300: var(--smooth-300);
+    --color-smooth-400: var(--smooth-400);
+    --color-smooth-500: var(--smooth-500);
+    --color-smooth-600: var(--smooth-600);
+    --color-smooth-700: var(--smooth-700);
+    --color-smooth-800: var(--smooth-800);
+    --color-smooth-900: var(--smooth-900);
+    --color-smooth-950: var(--smooth-950);
+    --color-smooth-1000: var(--smooth-1000);
+    --color-color-destructive-hover: var(--color-destructive-hover);
+}
+
+:root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+    --amber: oklch(0.77 0.16 75);
+    --amber-fg: oklch(0.22 0 0);
+    --amber-hover: oklch(0.71 0.17 70);
+    --blue: oklch(0.62 0.19 256);
+    --blue-fg: #fff;
+    --blue-hover: oklch(0.56 0.2 256);
+    --green: oklch(0.7 0.17 152);
+    --green-fg: #fff;
+    --green-hover: oklch(0.64 0.18 152);
+    --thumb: #fff;
+    --smooth-50: oklch(0.99 0 0);
+    --smooth-100: oklch(0.972 0 0);
+    --smooth-200: oklch(0.945 0 0);
+    --smooth-300: oklch(0.91 0 0);
+    --smooth-400: oklch(0.865 0 0);
+    --smooth-500: oklch(0.81 0 0);
+    --smooth-600: oklch(0.74 0 0);
+    --smooth-700: oklch(0.66 0 0);
+    --smooth-800: oklch(0.56 0 0);
+    --smooth-900: oklch(0.47 0 0);
+    --smooth-950: oklch(0.36 0 0);
+    --smooth-1000: oklch(0.22 0 0);
+}
+
+.dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+    --amber: oklch(0.8 0.15 75);
+    --amber-fg: oklch(0.2 0 0);
+    --amber-hover: oklch(0.85 0.14 72);
+    --blue: oklch(0.66 0.18 256);
+    --blue-fg: #fff;
+    --blue-hover: oklch(0.72 0.16 256);
+    --green: oklch(0.73 0.16 152);
+    --green-fg: oklch(0.2 0 0);
+    --green-hover: oklch(0.79 0.15 152);
+    --thumb: #fff;
+    --smooth-50: oklch(0.2 0 0);
+    --smooth-100: oklch(0.235 0 0);
+    --smooth-200: oklch(0.275 0 0);
+    --smooth-300: oklch(0.315 0 0);
+    --smooth-400: oklch(0.36 0 0);
+    --smooth-500: oklch(0.41 0 0);
+    --smooth-600: oklch(0.47 0 0);
+    --smooth-700: oklch(0.55 0 0);
+    --smooth-800: oklch(0.66 0 0);
+    --smooth-900: oklch(0.74 0 0);
+    --smooth-950: oklch(0.85 0 0);
+    --smooth-1000: oklch(0.96 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
+}
+
+@utility focus-ring {
+  &:focus-visible {
+    @apply ring-[3px] ring-ring/80;
+    }
+}
+
+@utility focus-ring-within {
+  &:has(:focus-visible) {
+    @apply ring-[3px] ring-ring/80;
+    }
+}
+
+@utility state-transition {
+    @apply transition-[background-color,border-color,color,box-shadow] duration-150 ease-out motion-reduce:transition-none;
+}
+/* ------------------------------------------------------------------ */
+/*  Ark: app tokens                                                    */
+/* ------------------------------------------------------------------ */
+
+:root {
+    --brand: oklch(0.6 0.15 42);
+    --brand-secondary: oklch(0.54 0.15 42);
+    --brand-light: oklch(0.7 0.12 42);
+    --brand-lighter: oklch(0.93 0.035 60);
+    --workspace: oklch(0.955 0.008 75);
+    --doc-font: "Source Serif 4 Variable", Georgia, "Times New Roman", serif;
+    --doc-heading-font: "Geist Variable", "Helvetica Neue", Arial, sans-serif;
+}
+
+.dark {
+    --brand: oklch(0.74 0.13 50);
+    --brand-secondary: oklch(0.68 0.13 50);
+    --brand-light: oklch(0.6 0.11 50);
+    --brand-lighter: oklch(0.3 0.04 50);
+    --on-brand: oklch(0.18 0.02 50);
+    --workspace: oklch(0.185 0.006 60);
+}
+
+@theme inline {
+    --color-workspace: var(--workspace);
+}
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
+/* ------------------------------------------------------------------ */
+/*  The sheet of paper                                                 */
+/* ------------------------------------------------------------------ */
+
+.page-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow:
+        0 0 0 1px rgb(68 52 36 / 0.07),
+        0 2px 4px rgb(68 52 36 / 0.05),
+        0 14px 34px -14px rgb(68 52 36 / 0.2);
+}
+
+.dark .page-sheet {
+    box-shadow:
+        0 0 0 1px rgb(255 255 255 / 0.05),
+        0 16px 40px -10px rgb(0 0 0 / 0.75);
+}
+
+.page-number {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, 50%);
+    font: 500 9pt/1 "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    color: #a8a29e;
+    user-select: none;
+}
+
+.page-body {
+    color: #1c1917;
+    color-scheme: light;
+}
+
+/* Spacers inserted by the Pagination extension: they carry text to the next sheet. */
+.page-spacer {
+    display: block;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* While the extension measures, the text lays out as if there were no pages. */
+.ProseMirror.pagination-measuring .page-spacer,
+.ProseMirror.pagination-measuring .page-spacer-row {
+    display: none !important;
+}
+
+.doc-content tr.page-spacer-row,
+.doc-content tr.page-spacer-row > td {
+    padding: 0;
+    border: none;
+    background: transparent;
+    pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Document typography                                                */
+/* ------------------------------------------------------------------ */
+
+.doc-content .ProseMirror {
+    outline: none;
+    min-height: var(--content-min-height, 0);
+    /* Unhinted glyph widths, like print uses, so lines wrap the same on screen and on paper. */
+    text-rendering: geometricPrecision;
+    font-family: var(--doc-font);
+    font-size: 12pt;
+    line-height: 1.5;
+    color: #1c1917;
+    caret-color: #c2410c;
+    overflow-wrap: break-word;
+}
+
+.doc-content .ProseMirror.format-painter {
+    cursor: copy;
+}
+
+.doc-content p {
+    margin: 0 0 0.65em;
+}
+
+.doc-content h1,
+.doc-content h2,
+.doc-content h3,
+.doc-content h4 {
+    font-family: var(--doc-heading-font);
+    color: #0c0a09;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+}
+
+.doc-content h1 {
+    font-size: 24pt;
+    margin: 0.9em 0 0.35em;
+}
+
+.doc-content h2 {
+    font-size: 17pt;
+    margin: 1em 0 0.35em;
+}
+
+.doc-content h3 {
+    font-size: 13.5pt;
+    margin: 0.9em 0 0.3em;
+}
+
+.doc-content h4 {
+    font-size: 10.5pt;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #57534e;
+    margin: 0.9em 0 0.3em;
+}
+
+.doc-content .ProseMirror > :first-child {
+    margin-top: 0;
+}
+
+.doc-content blockquote {
+    margin: 0.9em 0;
+    padding: 0.1em 0 0.1em 1em;
+    border-left: 3px solid #ea580c;
+    font-style: italic;
+    color: #44403c;
+}
+
+.doc-content ul,
+.doc-content ol {
+    margin: 0 0 0.65em;
+    padding-left: 1.4em;
+}
+
+.doc-content ul {
+    list-style: disc;
+}
+
+.doc-content ul ul {
+    list-style: circle;
+}
+
+.doc-content ul ul ul {
+    list-style: square;
+}
+
+.doc-content ol {
+    list-style: decimal;
+}
+
+.doc-content ol ol {
+    list-style: lower-alpha;
+}
+
+.doc-content ol ol ol {
+    list-style: lower-roman;
+}
+
+.doc-content li::marker {
+    color: #78716c;
+}
+
+.doc-content li > p,
+.doc-content li > ul,
+.doc-content li > ol {
+    margin-bottom: 0.2em;
+}
+
+.doc-content ul[data-type="taskList"] {
+    list-style: none;
+    padding-left: 0.1em;
+}
+
+.doc-content ul[data-type="taskList"] li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5em;
+}
+
+.doc-content ul[data-type="taskList"] li > label {
+    flex: none;
+    user-select: none;
+    margin-top: 0.2em;
+}
+
+.doc-content ul[data-type="taskList"] li > div {
+    flex: 1;
+    min-width: 0;
+}
+
+.doc-content ul[data-type="taskList"] li[data-checked="true"] > div {
+    text-decoration: line-through;
+    color: #a8a29e;
+}
+
+.doc-content ul[data-type="taskList"] input[type="checkbox"] {
+    accent-color: #c2410c;
+    width: 0.95em;
+    height: 0.95em;
+    cursor: pointer;
+}
+
+.doc-content a {
+    color: #c2410c;
+    text-decoration: underline;
+    text-decoration-color: rgb(194 65 12 / 0.4);
+    text-underline-offset: 2px;
+    cursor: text;
+}
+
+.doc-content code {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 0.88em;
+    background: #f5f5f4;
+    border: 1px solid #e7e5e4;
+    border-radius: 4px;
+    padding: 0.05em 0.3em;
+}
+
+.doc-content pre {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 10pt;
+    background: #fafaf9;
+    border: 1px solid #e7e5e4;
+    border-radius: 6px;
+    padding: 0.7em 0.9em;
+    margin: 0 0 0.65em;
+    white-space: pre-wrap;
+}
+
+.doc-content pre code {
+    background: none;
+    border: 0;
+    padding: 0;
+}
+
+.doc-content mark {
+    color: inherit;
+    padding: 0 0.05em;
+    border-radius: 2px;
+}
+
+.doc-content hr {
+    border: 0;
+    height: 1px;
+    background: #d6d3d1;
+    margin: 1.2em 0;
+}
+
+.doc-content hr.ProseMirror-selectednode {
+    background: #ea580c;
+    outline: 3px solid rgb(234 88 12 / 0.2);
+}
+
+.doc-content img {
+    max-width: 100%;
+    /* An image taller than a page can't be split across pages. */
+    max-height: var(--page-content-height, none);
+    object-fit: contain;
+    height: auto;
+    display: inline-block;
+    border-radius: 2px;
+}
+
+.doc-content [data-resize-container] {
+    max-width: 100%;
+    vertical-align: bottom;
+}
+
+.doc-content [data-resize-wrapper] {
+    max-width: 100%;
+}
+
+.doc-content [data-resize-handle] {
+    opacity: 0;
+    width: 10px;
+    height: 10px;
+    background: #fff;
+    border: 1.5px solid #ea580c;
+    border-radius: 999px;
+    z-index: 1;
+}
+
+.doc-content [data-resize-handle="top-left"],
+.doc-content [data-resize-handle="bottom-left"] {
+    margin-left: -5px;
+}
+
+.doc-content [data-resize-handle="top-right"],
+.doc-content [data-resize-handle="bottom-right"] {
+    margin-right: -5px;
+}
+
+.doc-content [data-resize-handle^="top"] {
+    margin-top: -5px;
+}
+
+.doc-content [data-resize-handle^="bottom"] {
+    margin-bottom: -5px;
+}
+
+.doc-content .ProseMirror-selectednode[data-resize-container] [data-resize-handle],
+.doc-content [data-resize-container][data-resize-state="true"] [data-resize-handle] {
+    opacity: 1;
+}
+
+.doc-content .ProseMirror-selectednode[data-resize-container],
+.doc-content img.ProseMirror-selectednode {
+    outline: 2px solid #ea580c;
+    outline-offset: 1px;
+}
+
+/* Tables: light rules, tinted header */
+.doc-content .tableWrapper {
+    overflow-x: auto;
+    margin: 0.4em 0 0.9em;
+}
+
+.doc-content table {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+    margin: 0;
+    font-size: 0.95em;
+}
+
+.doc-content td,
+.doc-content th {
+    position: relative;
+    border: 1px solid #e7e5e4;
+    padding: 0.35em 0.6em;
+    vertical-align: top;
+    min-width: 2em;
+    text-align: left;
+}
+
+.doc-content th {
+    font-family: var(--doc-heading-font);
+    font-size: 0.9em;
+    font-weight: 600;
+    background: #f7f4f0;
+}
+
+.doc-content td > p,
+.doc-content th > p {
+    margin: 0;
+}
+
+.doc-content .selectedCell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgb(234 88 12 / 0.12);
+    pointer-events: none;
+}
+
+.doc-content .column-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -2px;
+    bottom: -2px;
+    width: 3px;
+    background: #ea580c;
+    pointer-events: none;
+}
+
+.doc-content .ProseMirror.resize-cursor {
+    cursor: col-resize;
+}
+
+/* Manual page break */
+.doc-content .page-break {
+    position: relative;
+    height: 1.6em;
+    margin: 0.4em 0 0.8em;
+}
+
+.doc-content .page-break::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    border-top: 1px dashed #d6d3d1;
+}
+
+.doc-content .page-break::after {
+    content: "Page break";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    padding: 1px 8px;
+    border: 1px solid #e7e5e4;
+    border-radius: 999px;
+    background: #fff;
+    font: 500 9px/1.4 "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    color: #78716c;
+}
+
+.doc-content .page-break.ProseMirror-selectednode::after {
+    border-color: #ea580c;
+    color: #c2410c;
+}
+
+.doc-content .ProseMirror-gapcursor::after {
+    border-top-color: #c2410c;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Print / PDF                                                        */
+/* ------------------------------------------------------------------ */
+
+@media print {
+    html,
+    body,
+    #root {
+        height: auto;
+        background: #fff !important;
+    }
+
+    .app-shell,
+    .app-body,
+    .workspace {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        background: none !important;
+    }
+
+    .pages {
+        zoom: 1 !important;
+        width: auto !important;
+        margin: 0 !important;
+    }
+
+    .page-sheet {
+        display: none !important;
+    }
+
+    .page-body {
+        padding: 0 !important;
+    }
+
+    .doc-content .ProseMirror {
+        min-height: 0 !important;
+    }
+
+    /* The screen layout's page starts become the printed page breaks. */
+    .page-spacer {
+        height: 0 !important;
+        break-before: page;
+    }
+
+    .doc-content tr.page-spacer-row {
+        break-before: page;
+    }
+
+    .doc-content tr.page-spacer-row > td {
+        height: 0 !important;
+    }
+
+    .doc-content [data-resize-handle],
+    .doc-content .column-resize-handle,
+    .doc-content .ProseMirror-gapcursor {
+        display: none !important;
+    }
+
+    .doc-content .ProseMirror-selectednode,
+    .doc-content .selectedCell::after {
+        outline: none !important;
+        background: none !important;
+    }
+
+    /* The spacer after a manual page break already starts the next page. */
+    .doc-content .page-break {
+        display: none;
+    }
+
+    .doc-content tr,
+    .doc-content img {
+        break-inside: avoid;
+    }
+
+    .doc-content h1,
+    .doc-content h2,
+    .doc-content h3,
+    .doc-content h4 {
+        break-after: avoid;
+    }
+}
