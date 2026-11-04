@@ -5,12 +5,15 @@ import {
   ArrowRightToLine,
   ArrowUpToLine,
   Baseline,
+  BetweenHorizontalStart,
   Bold,
   CalendarDays,
   Code,
   Columns3,
   FileUp,
+  Files,
   Globe,
+  Hash,
   Highlighter,
   Italic,
   Link,
@@ -95,11 +98,15 @@ const SELECT_CLASS =
 
 export function EditorToolbar({
   editor,
+  mode = 'document',
   onOpenLink,
 }: {
   editor: Editor
+  /** In a header or footer only text formatting applies: no lists, tables, images or breaks. */
+  mode?: 'document' | 'headerFooter'
   onOpenLink: () => void
 }) {
+  const inDocument = mode === 'document'
   const f = useFormatting(editor)
   const [textColor, setTextColor] = useState('#c2410c')
   const [highlight, setHighlight] = useState(HIGHLIGHT_COLORS[0][0])
@@ -136,6 +143,27 @@ export function EditorToolbar({
   const insertImage = (src: string, alt: string) =>
     editor.chain().focus().setImage({ src, alt: alt || undefined }).run()
 
+  const headerFooterItems: DropdownMenuItemConfig[] = [
+    {
+      key: 'page-number',
+      label: 'Page number',
+      icon: <Hash />,
+      onSelect: menu(() => editor.chain().focus().insertPageField('page').run()),
+    },
+    {
+      key: 'page-count',
+      label: 'Page count',
+      icon: <Files />,
+      onSelect: menu(() => editor.chain().focus().insertPageField('pages').run()),
+    },
+    {
+      key: 'date',
+      label: "Today's date",
+      icon: <CalendarDays />,
+      onSelect: menu(() => insertDate(editor)),
+    },
+  ]
+
   const insertItems: DropdownMenuItemConfig[] = [
     {
       key: 'image-file',
@@ -156,6 +184,13 @@ export function EditorToolbar({
       icon: <SquareSplitVertical />,
       shortcut: `${MOD}↵`,
       onSelect: menu(() => editor.chain().focus().setPageBreak().run()),
+    },
+    {
+      key: 'section',
+      label: 'Section break',
+      icon: <BetweenHorizontalStart />,
+      disabled: !f.canSectionBreak,
+      onSelect: menu(() => editor.chain().focus().insertSectionBreak().run()),
     },
     {
       key: 'rule',
@@ -220,18 +255,22 @@ export function EditorToolbar({
       </ToolbarGroup>
       <Divider />
 
-      <Select
-        aria-label="Paragraph style"
-        className={`${SELECT_CLASS} w-[8.25rem]`}
-        onValueChange={(value) => {
-          applyBlockStyle(editor, value as BlockStyle)
-          refocus(editor)
-        }}
-        options={STYLES}
-        size="sm"
-        value={f.block}
-      />
-      <Divider />
+      {inDocument ? (
+        <>
+          <Select
+            aria-label="Paragraph style"
+            className={`${SELECT_CLASS} w-[8.25rem]`}
+            onValueChange={(value) => {
+              applyBlockStyle(editor, value as BlockStyle)
+              refocus(editor)
+            }}
+            options={STYLES}
+            size="sm"
+            value={f.block}
+          />
+          <Divider />
+        </>
+      ) : null}
       <Select
         aria-label="Font"
         className={`${SELECT_CLASS} w-[8.5rem]`}
@@ -293,12 +332,14 @@ export function EditorToolbar({
 
       <ToolbarGroup className="gap-0">
         <ToolButton active={f.link} icon={<Link />} label={f.link ? 'Edit link' : 'Link'} onClick={onOpenLink} shortcut={`${MOD}K`} />
-        <TablePicker
-          onInsert={(rows, cols) =>
-            editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()
-          }
-        />
-        <DropdownMenu items={insertItems}>
+        {inDocument ? (
+          <TablePicker
+            onInsert={(rows, cols) =>
+              editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()
+            }
+          />
+        ) : null}
+        <DropdownMenu items={inDocument ? insertItems : headerFooterItems}>
           <ToolButton caret icon={<Plus />} label="Insert" showLabel />
         </DropdownMenu>
       </ToolbarGroup>
@@ -316,11 +357,15 @@ export function EditorToolbar({
         >
           <ToolButton caret icon={ALIGN[f.align].icon} label="Alignment" />
         </DropdownMenu>
-        <ToolButton active={f.bulletList} icon={<List />} label="Bulleted list" onClick={() => chain().toggleBulletList().run()} shortcut={`${MOD}Shift+8`} />
-        <ToolButton active={f.orderedList} icon={<ListOrdered />} label="Numbered list" onClick={() => chain().toggleOrderedList().run()} shortcut={`${MOD}Shift+7`} />
-        <ToolButton active={f.taskList} icon={<ListChecks />} label="Checklist" onClick={() => chain().toggleTaskList().run()} shortcut={`${MOD}Shift+9`} />
-        <ToolButton disabled={!f.canOutdent} icon={<ListIndentDecrease />} label="Decrease indent" onClick={() => outdent(editor)} shortcut="Shift+Tab" />
-        <ToolButton disabled={!f.canIndent} icon={<ListIndentIncrease />} label="Increase indent" onClick={() => indent(editor)} shortcut="Tab" />
+        {inDocument ? (
+          <>
+            <ToolButton active={f.bulletList} icon={<List />} label="Bulleted list" onClick={() => chain().toggleBulletList().run()} shortcut={`${MOD}Shift+8`} />
+            <ToolButton active={f.orderedList} icon={<ListOrdered />} label="Numbered list" onClick={() => chain().toggleOrderedList().run()} shortcut={`${MOD}Shift+7`} />
+            <ToolButton active={f.taskList} icon={<ListChecks />} label="Checklist" onClick={() => chain().toggleTaskList().run()} shortcut={`${MOD}Shift+9`} />
+            <ToolButton disabled={!f.canOutdent} icon={<ListIndentDecrease />} label="Decrease indent" onClick={() => outdent(editor)} shortcut="Shift+Tab" />
+            <ToolButton disabled={!f.canIndent} icon={<ListIndentIncrease />} label="Increase indent" onClick={() => indent(editor)} shortcut="Tab" />
+          </>
+        ) : null}
       </ToolbarGroup>
       <Divider />
 

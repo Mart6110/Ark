@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/react'
 import { createStore, del, get, set, values } from 'idb-keyval'
 import { DEFAULT_PAGE_SETUP, type PageSetup } from './page'
+import { defaultFirstSection, FIRST_SECTION_ID, type SectionMap, settingsFromPageSetup } from './sections'
 
 export interface DocMeta {
   id: string
@@ -14,10 +15,16 @@ export interface DocMeta {
 export interface DocRecord extends DocMeta {
   /** Tiptap JSON, or HTML for documents that haven't been edited since import. */
   content: JSONContent | string
-  pageSetup: PageSetup
+  /** Page layout, header and footer and numbering of each section, by section id. */
+  sections: SectionMap
 }
 
-type DocBody = Pick<DocRecord, 'content' | 'pageSetup'>
+interface DocBody {
+  content: DocRecord['content']
+  sections?: SectionMap
+  /** Saved by versions before sections: one page setup for the whole document. */
+  pageSetup?: PageSetup
+}
 
 // Metadata and content live in separate databases so the file list doesn't
 // have to read every document (and every embedded image) to render.
@@ -37,7 +44,7 @@ export function createDocument(
     title: init.title ?? UNTITLED,
     preview: init.preview ?? '',
     content: init.content ?? '',
-    pageSetup: DEFAULT_PAGE_SETUP,
+    sections: { [FIRST_SECTION_ID]: defaultFirstSection() },
     createdAt: now,
     updatedAt: now,
   }
@@ -54,15 +61,21 @@ export async function loadDocument(id: string): Promise<DocRecord | undefined> {
     get<DocBody>(id, bodyStore),
   ])
   if (!meta || !body) return undefined
-  // Fill in settings added since the document was saved.
-  return { ...meta, ...body, pageSetup: { ...DEFAULT_PAGE_SETUP, ...body.pageSetup } }
+  return {
+    ...meta,
+    content: body.content,
+    // Older documents become one section with their page setup (see editor/sections.ts withSections).
+    sections: body.sections ?? {
+      [FIRST_SECTION_ID]: settingsFromPageSetup({ ...DEFAULT_PAGE_SETUP, ...body.pageSetup }),
+    },
+  }
 }
 
 export async function saveDocument(doc: DocRecord) {
-  const { content, pageSetup, ...meta } = doc
+  const { content, sections, ...meta } = doc
   // Body first: a crash in between leaves stale metadata, never a listed
   // document without content.
-  await set(doc.id, { content, pageSetup } satisfies DocBody, bodyStore)
+  await set(doc.id, { content, sections } satisfies DocBody, bodyStore)
   await set(doc.id, meta satisfies DocMeta, metaStore)
 }
 

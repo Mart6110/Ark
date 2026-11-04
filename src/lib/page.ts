@@ -1,6 +1,10 @@
 export type Orientation = 'portrait' | 'landscape'
 export type MarginPreset = 'normal' | 'narrow' | 'moderate' | 'wide'
 
+/**
+ * How documents saved before sections existed stored their layout (now a
+ * section's settings, see sections.ts). Still read to bring them up to date.
+ */
 export interface PageSetup {
   orientation: Orientation
   margins: MarginPreset
@@ -50,7 +54,7 @@ export const PAGE_GAP = 28
 const A4 = { width: 210, height: 297 }
 
 /** Page size in millimetres. */
-export function pageSize({ orientation }: PageSetup) {
+export function pageSize({ orientation }: { orientation: Orientation }) {
   return orientation === 'portrait'
     ? A4
     : { width: A4.height, height: A4.width }

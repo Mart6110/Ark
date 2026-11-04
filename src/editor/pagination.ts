@@ -20,29 +20,53 @@ import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
  * follows by exactly its own height and never changes how margins collapse.
  * Layout is measured with the spacers hidden by a CSS class (no DOM changes),
  * which makes every pass independent of the previous one, and a transaction
- * is only dispatched when the page starts actually move. In print the spacers
- * become forced page breaks, so the PDF has the same pages as the screen.
+ * is only dispatched when the page starts actually move. Printing cuts the
+ * text into pages at the spacers (lib/print.ts), so the PDF has the same
+ * pages as the screen.
  *
- * One print rule shapes the layout: a forced break at the very start of an
- * element propagates up to the outermost element starting at the same place,
- * and that element's top margin is kept at the top of the new page. A heading
- * or quote that starts a page therefore keeps its space above, on screen too.
+ * Pages come in sections (see sections.ts): every section starts on a new
+ * page and can have its own page size and text area, so the plugin works
+ * out each page's geometry as it goes and reports the pages it made.
+ *
+ * Where a page starts with an element (not halfway through one), that
+ * element's top margin is kept at the top of the page, as print does for a
+ * forced break; a heading that starts a page keeps its space above.
  */
 
-export interface PageGeometry {
-  /** All in CSS pixels at 100 % zoom. */
+/** One section's pages, in CSS pixels at 100 % zoom. */
+export interface SectionPageGeometry {
   pageHeight: number
+  /** The text area, as distances from the top and bottom edges of the page. */
+  textTop: number
+  textBottom: number
+  /** The same on the section's first page (its header or footer can differ). */
+  firstTextTop: number
+  firstTextBottom: number
+}
+
+export interface PageGeometry {
   pageGap: number
-  marginTop: number
-  marginBottom: number
   /** The CSS zoom applied to the pages, to turn screen pixels into CSS pixels. */
   zoom: number
+  /** By section id. A section the geometry doesn't know yet carries on the previous one's. */
+  sections: Record<string, SectionPageGeometry>
+}
+
+/** One page, in CSS px from the top edge of the first page. */
+export interface PageBox {
+  section: number
+  sectionId: string
+  firstOfSection: boolean
+  top: number
+  height: number
+  textTop: number
+  textBottom: number
 }
 
 export interface PaginationStorage {
   geometry: PageGeometry | null
-  pages: number
-  onPages: ((pages: number) => void) | null
+  pages: PageBox[]
+  onPages: ((pages: PageBox[]) => void) | null
   /** Re-run layout now (geometry changed). */
   relayout: () => void
 }
@@ -166,23 +190,45 @@ function keptMarginTop(el: Element) {
 }
 
 /** Works out where every page starts, from the layout without any spacers. */
-function computeSpacers(view: EditorView, g: PageGeometry): Spacer[] {
-  const contentHeight = g.pageHeight - g.marginTop - g.marginBottom
-  const stride = g.pageHeight + g.pageGap
-  const origin = view.dom.getBoundingClientRect().top
+function computeSpacers(view: EditorView, g: PageGeometry): { spacers: Spacer[]; pages: PageBox[] } | null {
+  const { doc } = view.state
+  const firstId = (doc.firstChild?.attrs.id as string | null) ?? ''
+  let geometry = g.sections[firstId] ?? Object.values(g.sections)[0]
+  if (!geometry) return null
+  const screenOrigin = view.dom.getBoundingClientRect().top
   /** Screen y → CSS px from the top of the text area, without spacers. */
-  const y = (screenY: number) => (screenY - origin) / g.zoom
+  const y = (screenY: number) => (screenY - screenOrigin) / g.zoom
+
+  const pages: PageBox[] = []
+  const openPage = (section: number, sectionId: string, firstOfSection: boolean, top: number) => {
+    const textTop = firstOfSection ? geometry.firstTextTop : geometry.textTop
+    const textBottom = firstOfSection ? geometry.firstTextBottom : geometry.textBottom
+    pages.push({
+      section,
+      sectionId,
+      firstOfSection,
+      top,
+      height: geometry.pageHeight,
+      textTop: top + textTop,
+      textBottom: top + geometry.pageHeight - textBottom,
+    })
+  }
+  openPage(0, firstId, true, 0)
+  /** The editor's top edge is the first page's text top; page coordinates are relative to it. */
+  const origin = pages[0].textTop
 
   const spacers: Spacer[] = []
-  let page = 0
   let shift = 0
-  /** Set by a manual page break: the next content starts a new page. */
+  /** Set by a manual page break or a new section: the next content starts a new page. */
   let forceBreak = false
+  /** The section the next page belongs to, when a section starts. */
+  let nextSection: { index: number; id: string } | null = null
   /** A heading that ended up last on its page moves along with what follows it. */
   let heading: { top: number; target: Target; page: number } | null = null
 
-  const pageBottom = () => page * stride + contentHeight - PRINT_SAFETY
-  const pageTop = () => page * stride
+  const current = () => pages[pages.length - 1]
+  const pageBottom = () => current().textBottom - origin - PRINT_SAFETY
+  const pageTop = () => current().textTop - origin
 
   /** How far below the page top the moved content starts in print. */
   const startOffset = (target: Target, naturalTop: number) => {
@@ -196,15 +242,23 @@ function computeSpacers(view: EditorView, g: PageGeometry): Spacer[] {
 
   const newPage = (naturalTop: number, { anchor, ...target }: Target) => {
     const offset = startOffset({ ...target, anchor }, naturalTop)
-    const height = (page + 1) * stride + offset - (naturalTop + shift)
+    const previous = current()
+    const top = previous.top + previous.height + g.pageGap
+    if (nextSection) {
+      geometry = g.sections[nextSection.id] ?? geometry
+      openPage(nextSection.index, nextSection.id, true, top)
+      nextSection = null
+    } else {
+      openPage(previous.section, previous.sectionId, false, top)
+    }
+    const height = pageTop() + offset - (naturalTop + shift)
     spacers.push({ ...target, height })
     shift += height
-    page += 1
   }
 
   /** Before moving a unit's first line: take an orphaned heading along. */
   const moveFirstLine = (naturalTop: number, target: Target) => {
-    if (heading && heading.page === page && heading.top + shift > pageTop() + 1) {
+    if (heading && heading.page === pages.length - 1 && heading.top + shift > pageTop() + 1) {
       newPage(heading.top, heading.target)
     } else {
       newPage(naturalTop, target)
@@ -271,7 +325,8 @@ function computeSpacers(view: EditorView, g: PageGeometry): Spacer[] {
     }
 
     if (y(box.bottom) + shift <= pageBottom()) {
-      heading = node.type.name === 'heading' ? { top: contentBox(el).top, target: firstLine, page } : null
+      heading =
+        node.type.name === 'heading' ? { top: contentBox(el).top, target: firstLine, page: pages.length - 1 } : null
       return
     }
 
@@ -391,9 +446,30 @@ function computeSpacers(view: EditorView, g: PageGeometry): Spacer[] {
     })
   }
 
-  walk(view.state.doc, 0)
-  return spacers.sort((a, b) => a.pos - b.pos)
+  // Top level: sections. Each one after the first starts on a new page.
+  doc.forEach((section, offset, index) => {
+    if (index > 0) {
+      forceBreak = true
+      nextSection = { index, id: (section.attrs.id as string | null) ?? '' }
+      heading = null
+    }
+    walk(section, offset + 1)
+  })
+  return { spacers: spacers.sort((a, b) => a.pos - b.pos), pages }
 }
+
+const samePages = (a: PageBox[], b: PageBox[]) =>
+  a.length === b.length &&
+  a.every(
+    (page, i) =>
+      page.sectionId === b[i].sectionId &&
+      page.section === b[i].section &&
+      page.firstOfSection === b[i].firstOfSection &&
+      Math.abs(page.top - b[i].top) < 0.5 &&
+      Math.abs(page.height - b[i].height) < 0.5 &&
+      Math.abs(page.textTop - b[i].textTop) < 0.5 &&
+      Math.abs(page.textBottom - b[i].textBottom) < 0.5,
+  )
 
 class PaginationView {
   private frame = 0
@@ -446,18 +522,18 @@ class PaginationView {
     // Hold the height while spacers are hidden, so the scroll position can't jump.
     dom.style.minHeight = `${dom.getBoundingClientRect().height / geometry.zoom}px`
     dom.classList.add('pagination-measuring')
-    const spacers = computeSpacers(view, geometry)
+    const layout = computeSpacers(view, geometry)
     dom.classList.remove('pagination-measuring')
     dom.style.minHeight = ''
-    if (!sameLayout(key.getState(view.state)?.find() ?? [], spacers)) {
-      view.dispatch(view.state.tr.setMeta(key, spacers).setMeta('addToHistory', false))
+    if (!layout) return
+    if (!sameLayout(key.getState(view.state)?.find() ?? [], layout.spacers)) {
+      view.dispatch(view.state.tr.setMeta(key, layout.spacers).setMeta('addToHistory', false))
     }
     this.lastSize = this.size()
 
-    const pages = spacers.length + 1
-    if (pages !== storage.pages) {
-      storage.pages = pages
-      storage.onPages?.(pages)
+    if (!samePages(storage.pages, layout.pages)) {
+      storage.pages = layout.pages
+      storage.onPages?.(layout.pages)
     }
   }
 
@@ -469,10 +545,10 @@ class PaginationView {
 }
 
 /**
- * Tells the extension the page size and where to report the page count.
+ * Tells the extension the page geometry and where to report the pages.
  * Returns a function that stops the reporting.
  */
-export function connectPages(editor: Editor, geometry: PageGeometry, onPages: (pages: number) => void) {
+export function connectPages(editor: Editor, geometry: PageGeometry, onPages: (pages: PageBox[]) => void) {
   const storage = editor.storage.pagination
   storage.geometry = geometry
   storage.onPages = onPages
@@ -486,7 +562,7 @@ export const Pagination = Extension.create<object, PaginationStorage>({
   name: 'pagination',
 
   addStorage() {
-    return { geometry: null, pages: 1, onPages: null, relayout: () => {} }
+    return { geometry: null, pages: [], onPages: null, relayout: () => {} }
   },
 
   addProseMirrorPlugins() {

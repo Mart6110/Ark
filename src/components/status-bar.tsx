@@ -2,7 +2,7 @@ import type { Editor } from '@tiptap/react'
 import { Minus, Plus } from 'lucide-react'
 import Slider from '@/components/smoothui/slider'
 import { useDocumentStats } from '@/editor/use-document-stats'
-import type { PageSetup } from '@/lib/page'
+import type { ResolvedSection, SectionSettings } from '@/lib/sections'
 import { clampZoom, MAX_ZOOM, MIN_ZOOM } from '@/lib/zoom'
 import type { PageInfo } from './page'
 import { PageSetupButton } from './page-setup'
@@ -15,16 +15,23 @@ export function StatusBar({
   zoom,
   onZoom,
   onFitWidth,
-  pageSetup,
-  onPageSetup,
+  section,
+  sectionCount,
+  onSectionChange,
+  onLinkChange,
+  onRemoveBreak,
 }: {
   editor: Editor
   pageInfo: PageInfo
   zoom: number
   onZoom: (zoom: number) => void
   onFitWidth: () => void
-  pageSetup: PageSetup
-  onPageSetup: (setup: PageSetup) => void
+  /** The section the cursor (or the header or footer being edited) is in. */
+  section: ResolvedSection
+  sectionCount: number
+  onSectionChange: (patch: Partial<SectionSettings>) => void
+  onLinkChange: (linked: boolean) => void
+  onRemoveBreak: () => void
 }) {
   const stats = useDocumentStats(editor)
   return (
@@ -42,7 +49,13 @@ export function StatusBar({
       <span className="hidden sm:inline">{number.format(stats.characters)} characters</span>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <PageSetupButton onChange={onPageSetup} pageSetup={pageSetup} />
+        <PageSetupButton
+          onChange={onSectionChange}
+          onLinkChange={onLinkChange}
+          onRemoveBreak={onRemoveBreak}
+          section={section}
+          sectionCount={sectionCount}
+        />
         <span aria-hidden className="hidden h-4 w-px bg-border sm:block" />
         <button
           aria-label="Zoom out"

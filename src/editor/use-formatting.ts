@@ -18,6 +18,9 @@ export function useFormatting(editor: Editor) {
           ? 'quote'
           : 'p'
       const can = editor.can()
+      // A header or footer editor has no lists or tables, and asking about them would throw.
+      const lists = Boolean(editor.schema.nodes.listItem)
+      const tables = Boolean(editor.schema.nodes.table)
 
       return {
         bold: editor.isActive('bold'),
@@ -37,10 +40,11 @@ export function useFormatting(editor: Editor) {
         headerRow: editor.isActive('tableHeader'),
         canUndo: can.undo(),
         canRedo: can.redo(),
-        canIndent: can.sinkListItem('listItem') || can.sinkListItem('taskItem'),
-        canOutdent: can.liftListItem('listItem') || can.liftListItem('taskItem'),
-        canMerge: can.mergeCells(),
-        canSplit: can.splitCell(),
+        canIndent: lists && (can.sinkListItem('listItem') || can.sinkListItem('taskItem')),
+        canOutdent: lists && (can.liftListItem('listItem') || can.liftListItem('taskItem')),
+        canMerge: tables && can.mergeCells(),
+        canSplit: tables && can.splitCell(),
+        canSectionBreak: Boolean(editor.schema.nodes.section) && can.insertSectionBreak(),
         hasSelection: !editor.state.selection.empty,
       }
     },
