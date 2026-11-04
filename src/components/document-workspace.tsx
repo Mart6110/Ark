@@ -1,15 +1,15 @@
-import { useEditor } from '@tiptap/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type Editor, useEditor, useEditorState } from '@tiptap/react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { LinkDialog } from '@/components/link-dialog'
-import { type PageInfo, Pages } from '@/components/page'
+import { type HeaderFooterTarget, type PageInfo, Pages } from '@/components/page'
 import { Sidebar } from '@/components/sidebar'
 import { toast } from '@/components/smoothui/toast'
 import { StatusBar } from '@/components/status-bar'
 import { EditorToolbar } from '@/components/toolbar/editor-toolbar'
 import { TopBar } from '@/components/top-bar'
-import { withTrailingParagraph } from '@/editor/commands'
 import { extensions } from '@/editor/extensions'
 import { imageEditorProps } from '@/editor/images'
+import { sectionIds, withSections } from '@/editor/sections'
 import { useAutosave } from '@/editor/use-autosave'
 import {
   createDocument,
@@ -22,6 +22,13 @@ import {
 import { downloadBlob, printDocument, safeFileName } from '@/lib/files'
 import { exportHtml } from '@/lib/html-export'
 import { MM_TO_PX, pageSize } from '@/lib/page'
+import {
+  type HeaderFooterDoc,
+  type HeaderFooterField,
+  resolveSections,
+  type SectionMap,
+  type SectionSettings,
+} from '@/lib/sections'
 import { useLocalState } from '@/lib/use-local-state'
 import { useMediaQuery } from '@/lib/use-media-query'
 import { useTheme } from '@/lib/use-theme'
@@ -39,9 +46,11 @@ export function DocumentWorkspace({
   onSwitch: (doc: DocRecord) => void
 }) {
   const [title, setTitle] = useState(initial.title)
-  const [pageSetup, setPageSetup] = useState(initial.pageSetup)
+  const [sectionMap, setSectionMap] = useState<SectionMap>(initial.sections)
   const [linkDialog, setLinkDialog] = useState(false)
-  const [pageInfo, setPageInfo] = useState<PageInfo>({ current: 1, total: 1 })
+  const [pageInfo, setPageInfo] = useState<PageInfo>({ current: 1, total: 1, section: 0 })
+  const [editingHeaderFooter, setEditingHeaderFooter] = useState<HeaderFooterTarget | null>(null)
+  const [headerFooterEditor, setHeaderFooterEditor] = useState<Editor | null>(null)
   const [zoom, setZoom] = useLocalState('ark:zoom', 1)
   const [theme, setTheme] = useTheme()
   const workspaceRef = useRef<HTMLDivElement>(null)
@@ -55,7 +64,7 @@ export function DocumentWorkspace({
 
   const editor = useEditor({
     extensions,
-    content: withTrailingParagraph(initial.content),
+    content: withSections(initial.content),
     autofocus: 'start',
     editorProps: {
       ...imageEditorProps,
@@ -75,7 +84,55 @@ export function DocumentWorkspace({
     },
   })
 
-  const { status, savedAt, flush } = useAutosave(editor, initial, title, pageSetup)
+  // The document's sections, in order, with their settings filled in.
+  const idList = useEditorState({ editor, selector: ({ editor }) => sectionIds(editor.state.doc).join('\n') })
+  const ids = useMemo(() => idList.split('\n'), [idList])
+  const sections = useMemo(() => resolveSections(ids, sectionMap), [ids, sectionMap])
+  const idsRef = useRef(ids)
+  useLayoutEffect(() => {
+    idsRef.current = ids
+  })
+  const currentSection = sections[Math.min(pageInfo.section, sections.length - 1)]
+
+  /** Stores settings for a section, starting from what it shows now (inherited or its own). */
+  const updateSection = useCallback((index: number, update: (settings: SectionSettings) => SectionSettings) => {
+    setSectionMap((map) => {
+      const section = resolveSections(idsRef.current, map)[index]
+      if (!section?.id) return map
+      return { ...map, [section.id]: update(section.settings) }
+    })
+  }, [])
+  const changeSection = useCallback(
+    (index: number, patch: Partial<SectionSettings>) => updateSection(index, (settings) => ({ ...settings, ...patch })),
+    [updateSection],
+  )
+  const changeHeaderFooter = useCallback(
+    (source: number, field: HeaderFooterField, doc: HeaderFooterDoc) =>
+      setSectionMap((map) => {
+        const section = resolveSections(idsRef.current, map)[source]
+        if (!section?.id) return map
+        return {
+          ...map,
+          [section.id]: { ...section.settings, headerFooter: { ...section.headerFooter, [field]: doc } },
+        }
+      }),
+    [],
+  )
+  /** "Same as previous section": share the earlier header and footer, or take a copy to change. */
+  const linkHeaderFooter = useCallback(
+    (index: number, linked: boolean) =>
+      setSectionMap((map) => {
+        const section = resolveSections(idsRef.current, map)[index]
+        if (!section?.id || index === 0) return map
+        return { ...map, [section.id]: { ...section.settings, headerFooter: linked ? null : section.headerFooter } }
+      }),
+    [],
+  )
+
+  const { status, savedAt, flush } = useAutosave(editor, initial, title, sectionMap)
+
+  /** The widest page, which is what has to fit the window. */
+  const widestPage = Math.max(...sections.map((section) => pageSize(section.settings).width)) * MM_TO_PX
 
   const fitWidth = useCallback(() => {
     const el = workspaceRef.current
@@ -84,15 +141,23 @@ export function DocumentWorkspace({
     const available =
       el.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight)
     // Floor to the zoom step so rounding never makes the page a pixel too wide.
-    setZoom(clampZoom(Math.floor((available / (pageSize(pageSetup).width * MM_TO_PX)) * 100) / 100))
-  }, [pageSetup, setZoom])
+    setZoom(clampZoom(Math.floor((available / widestPage) * 100) / 100))
+  }, [widestPage, setZoom])
 
   // On a phone the page wouldn't fit at 100%. Only checked when the document opens.
   useEffect(() => {
     const width = workspaceRef.current?.clientWidth ?? window.innerWidth
-    if (width < pageSize(pageSetup).width * MM_TO_PX * zoom) fitWidth()
+    if (width < widestPage * zoom) fitWidth()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // A header or footer being edited on a page that no longer exists.
+  useEffect(() => {
+    if (editingHeaderFooter && editingHeaderFooter.page >= pageInfo.total) setEditingHeaderFooter(null)
+  }, [editingHeaderFooter, pageInfo.total])
+
+  /** What the toolbar and the link dialog work on. */
+  const activeEditor = headerFooterEditor ?? editor
 
   const save = useCallback(async () => {
     if (await flush()) toast.success('Saved')
@@ -197,7 +262,7 @@ export function DocumentWorkspace({
           try {
             // docx is large, so it loads on first use.
             const { exportDocx } = await import('@/lib/docx-export')
-            const blob = await exportDocx(editor.getJSON(), { title, pageSetup })
+            const blob = await exportDocx(editor.getJSON(), { title, sections })
             downloadBlob(blob, `${safeFileName(title)}.docx`)
           } catch (error) {
             console.error(error)
@@ -206,7 +271,7 @@ export function DocumentWorkspace({
         }}
         onExportHtml={() =>
           downloadBlob(
-            exportHtml(editor.getHTML(), { title, pageSetup }),
+            exportHtml(editor.getHTML(), { title, sections }),
             `${safeFileName(title)}.html`,
           )
         }
@@ -238,13 +303,29 @@ export function DocumentWorkspace({
 
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="flex shrink-0 justify-center px-3 pt-3 pb-1 print:hidden">
-            <EditorToolbar editor={editor} onOpenLink={() => setLinkDialog(true)} />
+            <EditorToolbar
+              editor={activeEditor}
+              key={headerFooterEditor ? 'header-footer' : 'document'}
+              mode={headerFooterEditor ? 'headerFooter' : 'document'}
+              onOpenLink={() => setLinkDialog(true)}
+            />
           </div>
           <div
             className="workspace min-h-0 flex-1 overflow-auto px-3 pt-4 pb-10 sm:px-8"
             ref={workspaceRef}
           >
-            <Pages editor={editor} onPageInfo={setPageInfo} pageSetup={pageSetup} zoom={zoom} />
+            <Pages
+              editing={editingHeaderFooter}
+              editor={editor}
+              onEdit={setEditingHeaderFooter}
+              onHeaderFooterChange={changeHeaderFooter}
+              onHeaderFooterEditor={setHeaderFooterEditor}
+              onLinkChange={linkHeaderFooter}
+              onPageInfo={setPageInfo}
+              onSectionChange={changeSection}
+              sections={sections}
+              zoom={zoom}
+            />
           </div>
         </main>
       </div>
@@ -252,14 +333,20 @@ export function DocumentWorkspace({
       <StatusBar
         editor={editor}
         onFitWidth={fitWidth}
-        onPageSetup={setPageSetup}
+        onLinkChange={(linked) => linkHeaderFooter(currentSection.index, linked)}
+        onRemoveBreak={() => {
+          setEditingHeaderFooter(null)
+          editor.chain().focus().removeSectionBreak(currentSection.index).run()
+        }}
+        onSectionChange={(patch) => changeSection(currentSection.index, patch)}
         onZoom={setZoom}
         pageInfo={pageInfo}
-        pageSetup={pageSetup}
+        section={currentSection}
+        sectionCount={sections.length}
         zoom={zoom}
       />
 
-      <LinkDialog editor={editor} onOpenChange={setLinkDialog} open={linkDialog} />
+      <LinkDialog editor={activeEditor} onOpenChange={setLinkDialog} open={linkDialog} />
     </div>
   )
 }

@@ -7,12 +7,19 @@ import { TextStyleKit } from '@tiptap/extension-text-style'
 import StarterKit from '@tiptap/starter-kit'
 import { PageBreak, PageBreakShortcut } from './page-break'
 import { Pagination } from './pagination'
+import { Section, SectionDocument, SectionHousekeeping } from './sections'
 
 export const extensions = [
   StarterKit.configure({
+    // Replaced by the section-aware versions below.
+    document: false,
+    trailingNode: false,
     heading: { levels: [1, 2, 3, 4] },
     link: { openOnClick: false, autolink: true, defaultProtocol: 'https' },
   }),
+  SectionDocument,
+  Section,
+  SectionHousekeeping,
   TextStyleKit.configure({ backgroundColor: false, lineHeight: false }),
   Highlight.configure({ multicolor: true }),
   TextAlign.configure({ types: ['heading', 'paragraph'] }),

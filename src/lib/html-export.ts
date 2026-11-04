@@ -1,11 +1,26 @@
-import type { PageSetup } from './page'
+import type { JSONContent } from '@tiptap/core'
 import { MARGIN_PRESETS } from './page'
+import type { ResolvedSection } from './sections'
 
 const escape = (text: string) =>
   text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c)
 
-/** A standalone web page with the document and a print-friendly stylesheet. */
-export function exportHtml(bodyHtml: string, { title, pageSetup }: { title: string; pageSetup: PageSetup }) {
+const hasPageNumber = (doc: JSONContent | null): boolean =>
+  Boolean(doc) && (doc?.type === 'pageField' || (doc?.content ?? []).some(hasPageNumber))
+
+/**
+ * A standalone web page with the document and a print-friendly stylesheet.
+ * It's a plain web page: it prints with the first section's page size and
+ * margins, and a page number if that section's footer has one, but not the
+ * headers and footers themselves (PDF export keeps those).
+ */
+export function exportHtml(bodyHtml: string, { title, sections }: { title: string; sections: ResolvedSection[] }) {
+  const first = sections[0]
+  const pageSetup = {
+    orientation: first.settings.orientation,
+    margins: first.settings.margins,
+    pageNumbers: hasPageNumber(first.headerFooter.footer),
+  }
   const m = MARGIN_PRESETS[pageSetup.margins].margins
   const html = `<!doctype html>
 <html lang="en">
@@ -31,6 +46,7 @@ export function exportHtml(bodyHtml: string, { title, pageSetup }: { title: stri
   ul[data-type="taskList"] { list-style: none; padding-left: 0.1em; }
   ul[data-type="taskList"] li { display: flex; gap: 0.5em; }
   .page-break { break-after: page; }
+  section[data-section] + section[data-section] { break-before: page; }
   @media print { body { margin: 0; max-width: none; padding: 0; } }
 </style>
 </head>

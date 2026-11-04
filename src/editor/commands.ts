@@ -1,4 +1,4 @@
-import type { Editor, JSONContent } from '@tiptap/react'
+import type { Editor } from '@tiptap/react'
 import type { BlockStyle } from './use-formatting'
 
 export function applyBlockStyle(editor: Editor, style: BlockStyle) {
@@ -28,20 +28,6 @@ export function outdent(editor: Editor) {
 export function insertDate(editor: Editor) {
   const date = new Date().toLocaleDateString('en-GB', { dateStyle: 'long' })
   editor.chain().focus().insertContent(date).run()
-}
-
-/**
- * Tiptap's TrailingNode appends an empty paragraph after a final list or
- * table, and that edit lands in the undo history. Adding it up front keeps
- * "Undo" disabled when a document opens.
- */
-export function withTrailingParagraph(content: JSONContent | string): JSONContent | string {
-  if (typeof content === 'string') {
-    return !content.trim() || content.trimEnd().endsWith('</p>') ? content : `${content}<p></p>`
-  }
-  const last = content.content?.at(-1)
-  if (!last || last.type === 'paragraph') return content
-  return { ...content, content: [...(content.content ?? []), { type: 'paragraph' }] }
 }
 
 /**

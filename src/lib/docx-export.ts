@@ -5,6 +5,7 @@ import {
   Document,
   ExternalHyperlink,
   Footer,
+  Header,
   HeadingLevel,
   ImageRun,
   LevelFormat,
@@ -22,7 +23,8 @@ import {
   WidthType,
 } from 'docx'
 import { loadImageElement } from './files'
-import { MARGIN_PRESETS, MM_TO_PX, type PageSetup, pageSize } from './page'
+import { MARGIN_PRESETS, MM_TO_PX, pageSize } from './page'
+import { type HeaderFooterDoc, isEmptyHeaderFooter, type ResolvedSection, sectionGeometry, NO_HEIGHTS } from './sections'
 
 /*
  * Tiptap JSON → .docx. Covers what the editor can produce: headings, lists,
@@ -110,13 +112,16 @@ function firstFamily(family: unknown): string | undefined {
 }
 
 function textRun(text: string, marks: Mark[], forceBold?: boolean) {
+  return new TextRun({ text, ...runFormatting(marks, forceBold) })
+}
+
+function runFormatting(marks: Mark[], forceBold?: boolean) {
   const has = (type: string) => marks.some((m) => m.type === type)
   const style = marks.find((m) => m.type === 'textStyle')?.attrs ?? {}
   const highlight = marks.find((m) => m.type === 'highlight')
   const isLink = has('link')
 
-  return new TextRun({
-    text,
+  return {
     bold: forceBold || has('bold') || undefined,
     italics: has('italic') || undefined,
     underline: has('underline') || isLink ? {} : undefined,
@@ -131,7 +136,7 @@ function textRun(text: string, marks: Mark[], forceBold?: boolean) {
           fill: toHex(highlight.attrs?.color) ?? 'FFFF00',
         }
       : undefined,
-  })
+  }
 }
 
 const IMAGE_TYPES: Record<string, 'png' | 'jpg' | 'gif' | 'bmp'> = {
@@ -204,6 +209,14 @@ async function inlineChildren(
       )
     } else if (node.type === 'hardBreak') {
       out.push(new TextRun({ break: 1 }))
+    } else if (node.type === 'pageField') {
+      // A real Word field, so Word fills in the right number on every page.
+      out.push(
+        new TextRun({
+          ...runFormatting(node.marks ?? [], forceBold),
+          children: [node.attrs?.field === 'pages' ? PageNumber.TOTAL_PAGES : PageNumber.CURRENT],
+        }),
+      )
     } else if (node.type === 'image') {
       try {
         out.push(await imageRun(node.attrs ?? {}, ctx))
@@ -450,17 +463,98 @@ const headingStyle = (
   },
 })
 
+/** A header or footer's paragraphs; Word needs at least one. */
+async function headerFooterParagraphs(doc: HeaderFooterDoc, ctx: Context, style: 'Header' | 'Footer') {
+  const out: Paragraph[] = []
+  for (const node of doc?.content ?? []) {
+    if (node.type === 'paragraph') out.push(await paragraph(node, ctx, { style }, false))
+  }
+  return out.length ? out : [new Paragraph({ style })]
+}
+
+const headerStyle = (id: 'Header' | 'Footer') => ({
+  id,
+  name: id.toLowerCase(),
+  basedOn: 'Normal',
+  quickFormat: true,
+  run: { size: 20, color: '57534E' },
+  paragraph: { spacing: { after: 0, line: 336 } },
+})
+
+/**
+ * One Word section per Ark section, each with its page setup, numbering and
+ * header and footer. A section that shares the previous section's header and
+ * footer simply leaves them out: in Word, that's what "Link to Previous" means.
+ */
+async function wordSection(node: JSONContent, section: ResolvedSection, ctx: Context) {
+  const settings = section.settings
+  const portrait = pageSize({ ...settings, orientation: 'portrait' })
+  const margins = MARGIN_PRESETS[settings.margins].margins
+  const landscape = settings.orientation === 'landscape'
+  const geometry = sectionGeometry(settings, NO_HEIGHTS)
+  ctx.contentWidthPx = ((landscape ? portrait.height : portrait.width) - margins.left - margins.right) * MM_TO_PX
+  const children = await blocks(node.content, ctx)
+
+  const own = section.headerFooterSource === section.index
+  const hf = section.headerFooter
+  const make = async (doc: HeaderFooterDoc, kind: 'Header' | 'Footer') => {
+    const paragraphs = await headerFooterParagraphs(doc, ctx, kind)
+    return kind === 'Header' ? new Header({ children: paragraphs }) : new Footer({ children: paragraphs })
+  }
+  /**
+   * The first section only writes what it has; a later one writes even an
+   * empty header, so it doesn't inherit the previous section's.
+   */
+  const group = async (main: HeaderFooterDoc, first: HeaderFooterDoc, kind: 'Header' | 'Footer') => {
+    if (!own) return undefined
+    const writeMain = section.index > 0 || !isEmptyHeaderFooter(main)
+    const writeFirst = settings.differentFirstPage
+    if (!writeMain && !writeFirst) return undefined
+    return {
+      default: writeMain ? await make(main, kind) : undefined,
+      first: writeFirst ? await make(first, kind) : undefined,
+    }
+  }
+
+  return {
+    properties: {
+      titlePage: settings.differentFirstPage || undefined,
+      page: {
+        size: {
+          width: Math.round(portrait.width * MM_TO_TWIP),
+          height: Math.round(portrait.height * MM_TO_TWIP),
+          orientation: landscape ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
+        },
+        margin: {
+          top: Math.round(margins.top * MM_TO_TWIP),
+          right: Math.round(margins.right * MM_TO_TWIP),
+          bottom: Math.round(margins.bottom * MM_TO_TWIP),
+          left: Math.round(margins.left * MM_TO_TWIP),
+          header: Math.round((geometry.headerTop / MM_TO_PX) * MM_TO_TWIP),
+          footer: Math.round((geometry.footerBottom / MM_TO_PX) * MM_TO_TWIP),
+        },
+        pageNumbers: settings.restartNumbering ? { start: settings.startAt } : undefined,
+      },
+    },
+    headers: (await group(hf.header, hf.firstHeader, 'Header')) as { default?: Header; first?: Header } | undefined,
+    footers: (await group(hf.footer, hf.firstFooter, 'Footer')) as { default?: Footer; first?: Footer } | undefined,
+    children: children.length ? children : [new Paragraph({})],
+  }
+}
+
 export async function exportDocx(
   content: JSONContent,
-  { title, pageSetup }: { title: string; pageSetup: PageSetup },
+  { title, sections }: { title: string; sections: ResolvedSection[] },
 ) {
-  const page = pageSize({ ...pageSetup, orientation: 'portrait' })
-  const margins = MARGIN_PRESETS[pageSetup.margins].margins
-  const landscape = pageSetup.orientation === 'landscape'
-  const contentWidthMm = (landscape ? page.height : page.width) - margins.left - margins.right
-
-  const ctx: Context = { listInstance: 0, contentWidthPx: contentWidthMm * MM_TO_PX }
-  const children = await blocks(content.content, ctx)
+  const ctx: Context = { listInstance: 0, contentWidthPx: 0 }
+  // Content saved before sections existed is a single, implicit section.
+  const nodes = (content.content ?? []).some((node) => node.type === 'section')
+    ? (content.content ?? []).filter((node) => node.type === 'section')
+    : [{ type: 'section', content: content.content }]
+  const wordSections = []
+  for (const [i, node] of nodes.entries()) {
+    wordSections.push(await wordSection(node, sections[i] ?? sections[sections.length - 1], ctx))
+  }
 
   const doc = new Document({
     title,
@@ -491,6 +585,8 @@ export async function exportDocx(
             },
           },
         },
+        headerStyle('Header'),
+        headerStyle('Footer'),
       ],
     },
     numbering: {
@@ -499,45 +595,7 @@ export async function exportDocx(
         { reference: 'ordered', levels: orderedLevels },
       ],
     },
-    sections: [
-      {
-        properties: {
-          page: {
-            size: {
-              width: Math.round(page.width * MM_TO_TWIP),
-              height: Math.round(page.height * MM_TO_TWIP),
-              orientation: landscape ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
-            },
-            margin: {
-              top: Math.round(margins.top * MM_TO_TWIP),
-              right: Math.round(margins.right * MM_TO_TWIP),
-              bottom: Math.round(margins.bottom * MM_TO_TWIP),
-              left: Math.round(margins.left * MM_TO_TWIP),
-            },
-          },
-        },
-        footers: pageSetup.pageNumbers
-          ? {
-              default: new Footer({
-                children: [
-                  new Paragraph({
-                    alignment: AlignmentType.CENTER,
-                    children: [
-                      new TextRun({
-                        children: [PageNumber.CURRENT],
-                        font: HEADING_FONT,
-                        size: 18,
-                        color: '78716C',
-                      }),
-                    ],
-                  }),
-                ],
-              }),
-            }
-          : undefined,
-        children: children.length ? children : [new Paragraph({})],
-      },
-    ],
+    sections: wordSections,
   })
 
   return Packer.toBlob(doc)

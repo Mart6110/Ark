@@ -262,8 +262,6 @@ body,
 
 .page-sheet {
     position: absolute;
-    left: 0;
-    right: 0;
     background: #fff;
     border-radius: 4px;
     box-shadow:
@@ -278,13 +276,114 @@ body,
         0 16px 40px -10px rgb(0 0 0 / 0.75);
 }
 
-.page-number {
+/* ------------------------------------------------------------------ */
+/*  Headers and footers                                                */
+/* ------------------------------------------------------------------ */
+
+/* Drawn on the sheet (and in print); the editor for one sits on top while it's edited. */
+.hf-box {
     position: absolute;
-    left: 50%;
-    transform: translate(-50%, 50%);
-    font: 500 9pt/1 "Geist Variable", ui-sans-serif, system-ui, sans-serif;
-    color: #a8a29e;
+    font-family: var(--doc-font);
+    font-size: 10pt;
+    line-height: 1.4;
+    color: #57534e;
+    color-scheme: light;
+    text-rendering: geometricPrecision;
+    overflow-wrap: break-word;
+}
+
+.hf-box p {
+    margin: 0;
+    min-height: 1.4em;
+}
+
+.hf-box a {
+    color: #c2410c;
+}
+
+/* The footer box is positioned by its bottom edge. */
+.hf-footer {
+    transform: translateY(-100%);
+}
+
+.hf-hidden {
+    visibility: hidden;
+}
+
+/* Page number / page count: the box sets the numbers for the page it's on. */
+.page-field::after {
+    content: var(--page-number, "1");
+}
+
+.page-field[data-field="pages"]::after {
+    content: var(--page-count, "1");
+}
+
+.hf-editor {
+    z-index: 3;
+    border-radius: 3px;
+    outline: 1px dashed rgb(234 88 12 / 0.55);
+    outline-offset: 5px;
+}
+
+.hf-editor .hf-content {
+    outline: none;
+    min-height: 1.4em;
+    caret-color: #c2410c;
+}
+
+.hf-editor .page-field {
+    border-radius: 3px;
+    padding: 0 2px;
+    background: rgb(234 88 12 / 0.1);
+}
+
+.hf-editor .page-field.ProseMirror-selectednode {
+    outline: 2px solid rgb(234 88 12 / 0.35);
+}
+
+/* While a header or footer is edited, the text steps back. */
+.pages.hf-editing .page-body {
+    opacity: 0.45;
+}
+
+.hf-hover {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    border: 1px dashed rgb(234 88 12 / 0.45);
+    border-radius: 6px;
+}
+
+.hf-hover > span {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #fff;
+    font: 500 9px/1.5 "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    color: #c2410c;
+}
+
+.hf-measure {
+    position: absolute;
+    left: -10000px;
+    top: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.section-label {
+    position: absolute;
+    pointer-events: none;
     user-select: none;
+    font: 500 9px/1 "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #a8a29e;
 }
 
 .page-body {
@@ -373,8 +472,42 @@ body,
     margin: 0.9em 0 0.3em;
 }
 
-.doc-content .ProseMirror > :first-child {
+/* Only the very first block: on later pages, print keeps a heading's space above (see pagination.ts). */
+.page-body .doc-content .ProseMirror > section:first-child > :first-child,
+.print-page:first-child .doc-content .ProseMirror > section:first-child > :first-child {
     margin-top: 0;
+}
+
+/* Sections: their width and position come from page.tsx, one rule per section. */
+.page-body .doc-content .ProseMirror > section {
+    position: relative;
+}
+
+/* The end of a section, drawn below its last line so it never moves the text. */
+.page-body .doc-content .ProseMirror > section:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 0.7em);
+    border-top: 1px dashed #d6d3d1;
+    pointer-events: none;
+}
+
+.page-body .doc-content .ProseMirror > section:not(:last-child)::after {
+    content: "Section break";
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 0.7em);
+    transform: translate(-50%, -50%);
+    padding: 1px 8px;
+    border: 1px solid #e7e5e4;
+    border-radius: 999px;
+    background: #fff;
+    font: 500 9px/1.4 "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    color: #78716c;
+    pointer-events: none;
 }
 
 .doc-content blockquote {
@@ -671,82 +804,93 @@ body,
 /*  Print / PDF                                                        */
 /* ------------------------------------------------------------------ */
 
+/* The printable copy of the pages (lib/print.ts): one fixed-size box per page. */
+.print-root {
+    display: none;
+}
+
+@page {
+    size: A4;
+    margin: 0;
+}
+
+@page ark-portrait {
+    size: A4 portrait;
+    margin: 0;
+}
+
+@page ark-landscape {
+    size: A4 landscape;
+    margin: 0;
+}
+
+.print-page {
+    position: relative;
+    overflow: hidden;
+    page: ark-portrait;
+    break-after: page;
+    background: #fff;
+    color: #1c1917;
+    color-scheme: light;
+}
+
+.print-page.print-landscape {
+    page: ark-landscape;
+}
+
+.print-page:last-child {
+    break-after: auto;
+}
+
+.print-body {
+    position: absolute;
+}
+
+/* Elements that began on an earlier page carry on without starting over. */
+.print-root [data-continued] {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+.print-root li[data-continued] {
+    list-style-type: none;
+}
+
+.print-root li[data-continued]::marker {
+    content: none;
+}
+
+.print-root li[data-continued] > label {
+    visibility: hidden;
+}
+
+.print-root .page-break,
+.print-root [data-resize-handle],
+.print-root .column-resize-handle,
+.print-root .ProseMirror-gapcursor {
+    display: none !important;
+}
+
+.print-root .ProseMirror-selectednode,
+.print-root .selectedCell::after {
+    outline: none !important;
+    background: none !important;
+}
+
 @media print {
     html,
-    body,
-    #root {
+    body {
         height: auto;
         background: #fff !important;
     }
 
-    .app-shell,
-    .app-body,
-    .workspace {
-        display: block !important;
-        height: auto !important;
-        overflow: visible !important;
-        padding: 0 !important;
-        background: none !important;
-    }
-
-    .pages {
-        zoom: 1 !important;
-        width: auto !important;
-        margin: 0 !important;
-    }
-
-    .page-sheet {
+    /* Only the print copy: anything else in <body>, even an empty portal
+       container, would sit on a page of its own before it. */
+    body > :not(.print-root) {
         display: none !important;
     }
 
-    .page-body {
-        padding: 0 !important;
-    }
-
-    .doc-content .ProseMirror {
-        min-height: 0 !important;
-    }
-
-    /* The screen layout's page starts become the printed page breaks. */
-    .page-spacer {
-        height: 0 !important;
-        break-before: page;
-    }
-
-    .doc-content tr.page-spacer-row {
-        break-before: page;
-    }
-
-    .doc-content tr.page-spacer-row > td {
-        height: 0 !important;
-    }
-
-    .doc-content [data-resize-handle],
-    .doc-content .column-resize-handle,
-    .doc-content .ProseMirror-gapcursor {
-        display: none !important;
-    }
-
-    .doc-content .ProseMirror-selectednode,
-    .doc-content .selectedCell::after {
-        outline: none !important;
-        background: none !important;
-    }
-
-    /* The spacer after a manual page break already starts the next page. */
-    .doc-content .page-break {
-        display: none;
-    }
-
-    .doc-content tr,
-    .doc-content img {
-        break-inside: avoid;
-    }
-
-    .doc-content h1,
-    .doc-content h2,
-    .doc-content h3,
-    .doc-content h4 {
-        break-after: avoid;
+    .print-root {
+        display: block;
     }
 }

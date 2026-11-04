@@ -1,7 +1,7 @@
 import type { Editor } from '@tiptap/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { type DocRecord, previewFromText, saveDocument } from '@/lib/documents'
-import type { PageSetup } from '@/lib/page'
+import type { SectionMap } from '@/lib/sections'
 
 export type SaveStatus = 'saved' | 'pending' | 'saving' | 'error'
 
@@ -15,17 +15,17 @@ export function useAutosave(
   editor: Editor,
   base: DocRecord,
   title: string,
-  pageSetup: PageSetup,
+  sections: SectionMap,
 ) {
   const [status, setStatus] = useState<SaveStatus>('saved')
   const [savedAt, setSavedAt] = useState(base.updatedAt)
   const timer = useRef<number | undefined>(undefined)
   const dirty = useRef(false)
-  const latest = useRef({ title, pageSetup })
+  const latest = useRef({ title, sections })
   useEffect(() => {
-    latest.current = { title, pageSetup }
+    latest.current = { title, sections }
   })
-  const saved = useRef({ title: base.title, pageSetup: base.pageSetup })
+  const saved = useRef({ title: base.title, sections: base.sections })
 
   const save = useCallback(async () => {
     window.clearTimeout(timer.current)
@@ -73,16 +73,13 @@ export function useAutosave(
     }
   }, [editor, schedule])
 
-  // Renames and page setup changes are rare and deliberate: save right away,
-  // so closing the tab straight after can't lose them.
+  // Renames are rare and deliberate: save right away, so closing the tab
+  // straight after can't lose them. Section settings change while typing in
+  // a header or footer, so they wait like any other edit.
   useEffect(() => {
-    if (
-      title !== saved.current.title ||
-      pageSetup !== saved.current.pageSetup
-    ) {
-      schedule(0)
-    }
-  }, [title, pageSetup, schedule])
+    if (title !== saved.current.title) schedule(0)
+    else if (sections !== saved.current.sections) schedule()
+  }, [title, sections, schedule])
 
   // Leaving the tab is the last reliable moment to write.
   useEffect(() => {
